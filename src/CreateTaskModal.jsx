@@ -47,14 +47,20 @@ function CreateTaskModal({ onClose, onTaskCreated }) {
           },
         }
       );
-      console.log("Task created response:", response.data);
+      console.log("Task created response:", {
+        status: response.status,
+        data: response.data,
+      });
       onTaskCreated();
       onClose();
     } catch (error) {
-      console.error(
-        "Error creating task:",
-        error.response ? error.response.data : error.message
-      );
+      console.error("Error creating task:", {
+        message: error.message,
+        response: error.response
+          ? { status: error.response.status, data: error.response.data }
+          : null,
+        request: error.request ? error.request : null,
+      });
     }
   };
 
