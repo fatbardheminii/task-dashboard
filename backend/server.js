@@ -1,40 +1,97 @@
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
 const cors = require("cors");
+const fs = require("fs");
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3001;
 
-app.use(cors());
-app.use(express.json({ limit: "10mb" })); // Parse JSON bodies
+// Configure CORS for local development
+app.use(
+  cors({
+    origin: "http://localhost:5174", // Local frontend origin
+  })
+);
+app.use(express.json({ limit: "10mb" }));
 
-const db = new sqlite3.Database("../tasks.db", (err) => {
-  if (err) console.error("Database connection error:", err.message);
-  console.log("Connected to the SQLite database.");
-});
+// Check if database file is writable
+const dbPath = "./tasks.db";
+try {
+  if (fs.existsSync(dbPath)) {
+    fs.accessSync(dbPath, fs.constants.W_OK);
+    console.log("Database file is writable.");
+  } else {
+    console.log("Database file does not exist, will be created.");
+  }
+} catch (error) {
+  console.error("Database file access error:", error.message);
+  process.exit(1);
+}
 
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    image TEXT, -- Store base64 string
-    description TEXT NOT NULL,
-    location TEXT NOT NULL,
-    status TEXT NOT NULL
-  )`);
-  db.run(`CREATE TABLE IF NOT EXISTS comments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id INTEGER,
-    content TEXT NOT NULL,
-    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-  )`);
-});
+// Initialize database with error handling
+let db;
+try {
+  db = new sqlite3.Database(
+    dbPath,
+    sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE,
+    (err) => {
+      if (err) {
+        console.error("Failed to connect to SQLite database:", err.message);
+        process.exit(1);
+      }
+      console.log("Connected to the SQLite database.");
+    }
+  );
+
+  // Ensure tables are created
+  db.serialize(() => {
+    db.run(
+      `CREATE TABLE IF NOT EXISTS tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        image TEXT,
+        description TEXT NOT NULL,
+        location TEXT NOT NULL,
+        status TEXT NOT NULL
+      )`,
+      (err) => {
+        if (err) {
+          console.error("Error creating tasks table:", err.message);
+          process.exit(1);
+        }
+        console.log("Tasks table ready.");
+      }
+    );
+    db.run(
+      `CREATE TABLE IF NOT EXISTS comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER,
+        content TEXT NOT NULL,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+      )`,
+      (err) => {
+        if (err) {
+          console.error("Error creating comments table:", err.message);
+          process.exit(1);
+        }
+        console.log("Comments table ready.");
+      }
+    );
+  });
+} catch (error) {
+  console.error("Database initialization error:", error.message);
+  process.exit(1);
+}
 
 app.get("/tasks", (req, res) => {
   db.all("SELECT * FROM tasks", [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
+    if (err) {
+      console.error("Error fetching tasks:", err.message);
+      return res.status(500).json({ error: err.message });
+    }
+    console.log("Fetched tasks:", rows.length);
     const tasksWithImages = rows.map((task) => ({
       ...task,
-      image: task.image ? `data:image/jpeg;base64,${task.image}` : null, // Reconstruct base64 URL
+      image: task.image ? `data:image/jpeg;base64,${task.image}` : null,
     }));
     res.json(tasksWithImages);
   });
@@ -42,15 +99,15 @@ app.get("/tasks", (req, res) => {
 
 app.post("/tasks", (req, res) => {
   const { title, image, description, location, status } = req.body;
-
-  console.log("Inserting task:", {
+  console.log("Received POST /tasks request with data:", {
     title,
-    image,
+    image: image ? `${image.slice(0, 30)}...` : null,
     description,
     location,
     status,
   });
-  if (!title || !description || !location) {
+  if (!title || !description || !location.trim()) {
+    console.log("Missing required fields, returning 400");
     return res.status(400).json({ error: "Missing required fields" });
   }
 
@@ -63,18 +120,23 @@ app.post("/tasks", (req, res) => {
         return res.status(500).json({ error: err.message });
       }
       console.log("Task inserted with ID:", this.lastID);
-      res.json({ id: this.lastID });
+      res.status(201).json({ id: this.lastID });
     }
   );
 });
 
 app.patch("/tasks/:id", (req, res) => {
   const { status } = req.body;
+  console.log(`Received PATCH /tasks/${req.params.id} with status:`, status);
   db.run(
     "UPDATE tasks SET status = ? WHERE id = ?",
     [status, req.params.id],
     function (err) {
-      if (err) return res.status(500).json({ error: err.message });
+      if (err) {
+        console.error("Update error:", err.message);
+        return res.status(500).json({ error: err.message });
+      }
+      console.log("Task updated, changes:", this.changes);
       res.json({ updated: this.changes });
     }
   );
@@ -85,7 +147,11 @@ app.get("/tasks/:id/comments", (req, res) => {
     "SELECT * FROM comments WHERE task_id = ?",
     [req.params.id],
     (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
+      if (err) {
+        console.error("Error fetching comments:", err.message);
+        return res.status(500).json({ error: err.message });
+      }
+      console.log("Fetched comments for task", req.params.id, ":", rows.length);
       res.json(rows);
     }
   );
@@ -93,25 +159,35 @@ app.get("/tasks/:id/comments", (req, res) => {
 
 app.post("/comments", (req, res) => {
   const { task_id, content } = req.body;
+  console.log("Received POST /comments with data:", { task_id, content });
   db.run(
     "INSERT INTO comments (task_id, content) VALUES (?, ?)",
     [task_id, content],
     function (err) {
-      if (err) return res.status(500).json({ error: err.message });
+      if (err) {
+        console.error("Comment insert error:", err.message);
+        return res.status(500).json({ error: err.message });
+      }
+      console.log("Comment inserted with ID:", this.lastID);
       res.json({ id: this.lastID });
     }
   );
 });
 
 app.delete("/comments/:id", (req, res) => {
+  console.log(`Received DELETE /comments/${req.params.id}`);
   db.run("DELETE FROM comments WHERE id = ?", [req.params.id], function (err) {
-    if (err) return res.status(500).json({ error: err.message });
+    if (err) {
+      console.error("Comment delete error:", err.message);
+      return res.status(500).json({ error: err.message });
+    }
+    console.log("Comment deleted, changes:", this.changes);
     res.json({ deleted: this.changes });
   });
 });
 
 app.delete("/tasks/:id", (req, res) => {
-  console.log(`Received DELETE request for /tasks/${req.params.id}`);
+  console.log(`Received DELETE /tasks/${req.params.id}`);
   db.run("DELETE FROM tasks WHERE id = ?", [req.params.id], function (err) {
     if (err) {
       console.error("Delete error:", err.message);
