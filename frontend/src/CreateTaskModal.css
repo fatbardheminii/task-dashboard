@@ -130,6 +130,13 @@
   box-shadow: var(--shadow-xl), var(--shadow-glow);
 }
 
+.modal-content .error-message {
+  color: red;
+  margin: 0.5rem 0;
+  font-weight: bold;
+}
+
+
 /* Responsive Adjustments */
 @media (max-width: 768px) {
   .modal-content {

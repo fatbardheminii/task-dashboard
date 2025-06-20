@@ -4,28 +4,30 @@ import "./CreateTaskModal.css";
 
 function CreateTaskModal({ onClose, onTaskCreated }) {
   const [title, setTitle] = useState("");
-  const [image, setImage] = useState(null); // Base64 string or null
+  const [image, setImage] = useState(null);
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
+  const [error, setError] = useState(""); // New state for error message
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImage(reader.result); // Full base64 string (e.g., data:image/jpeg;base64,...)
+        setImage(reader.result);
       };
       reader.readAsDataURL(file);
     } else {
-      setImage(null); // Reset if no file selected
+      setImage(null);
     }
   };
 
   const handleSubmit = async (e) => {
-    if (e) e.preventDefault(); // Prevent default form submission behavior
-    console.log("Submit triggered", { title, image, description, location });
-    if (!title || !description || !location) {
-      console.log("Missing required fields");
+    if (e) e.preventDefault();
+
+    // Frontend validation
+    if (!title.trim() || !description.trim() || !location.trim()) {
+      setError("All required fields (*) must be filled out.");
       return;
     }
 
@@ -34,23 +36,15 @@ function CreateTaskModal({ onClose, onTaskCreated }) {
       description,
       location,
       status: "New Tasks",
-      image: image ? image.split(",")[1] : null, // Extract base64 data (remove prefix) or null
+      image: image ? image.split(",")[1] : null,
     };
 
     try {
-      const response = await axios.post(
+      await axios.post(
         `${import.meta.env.VITE_BACKEND_URL}/tasks`,
         taskData,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
+        { headers: { "Content-Type": "application/json" } }
       );
-      console.log("Task created response:", {
-        status: response.status,
-        data: response.data,
-      });
       onTaskCreated();
       onClose();
     } catch (error) {
@@ -59,17 +53,17 @@ function CreateTaskModal({ onClose, onTaskCreated }) {
         response: error.response
           ? { status: error.response.status, data: error.response.data }
           : null,
-        request: error.request ? error.request : null,
+        request: error.request || null,
       });
+      setError("Failed to create task. Please try again.");
     }
   };
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault(); // Prevent newline in textarea
+      e.preventDefault();
       handleSubmit();
     }
-    // Shift+Enter allows newlines in textarea
   };
 
   return (
@@ -79,6 +73,10 @@ function CreateTaskModal({ onClose, onTaskCreated }) {
           X
         </button>
         <h2>Create Task</h2>
+
+        {/* Error message block */}
+        {error && <p className="error-message">{error}</p>}
+
         <form onSubmit={handleSubmit}>
           <input
             type="text"

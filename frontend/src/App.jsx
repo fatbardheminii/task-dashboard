@@ -85,7 +85,7 @@ function App() {
                   {...provided.droppableProps}
                 >
                   <h2>{status}</h2>
-                  <div style={{ flex: 1, overflowY: "auto" }}>
+                  <div className="task-list">
                     {tasks
                       .filter((task) => task.status === status)
                       .map((task, index) => (

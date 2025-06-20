@@ -139,7 +139,9 @@ body {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
   transition: left 0.6s ease;
   z-index: -1;
+  pointer-events: none; 
 }
+
 
 .btn:hover::before {
   left: 100%;
@@ -181,11 +183,12 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-lg);
   padding: 1.5rem;
-  min-height: 100vh;
+  height: 80vh;
+  min-height: 70vh;
   box-shadow: var(--shadow-lg);
   transition: all var(--transition-normal);
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .task-column::before {
@@ -228,6 +231,16 @@ body {
   box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
 }
 
+.task-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem; /* optional: adds spacing between tasks */
+}
+
+
 .task-card {
   background: var(--bg-card);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -243,6 +256,7 @@ body {
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
+  width: 95%;
 }
 
 .task-card::before {
