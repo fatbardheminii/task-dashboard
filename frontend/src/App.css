@@ -332,6 +332,16 @@ body {
   transform: scale(1.1);
 }
 
+input::-moz-placeholder,
+textarea::-moz-placeholder {
+  color: #000;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #000;
+}
+
 /* Responsive Design */
 @media (max-width: 767px) {
   .app {
