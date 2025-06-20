@@ -9,7 +9,6 @@ function App() {
   const [tasks, setTasks] = useState([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
-  const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
     fetchTasks(); // Initial fetch
@@ -19,7 +18,9 @@ function App() {
 
   const fetchTasks = async () => {
     try {
-      const response = await axios.get("http://localhost:3001/tasks");
+      const response = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URL}/tasks`
+      );
       setTasks(response.data);
     } catch (error) {
       console.error("Error fetching tasks:", error);
@@ -32,9 +33,12 @@ function App() {
     if (source.droppableId !== destination.droppableId) {
       const task = tasks.find((t) => t.id === parseInt(result.draggableId));
       try {
-        await axios.patch(`http://localhost:3001/tasks/${task.id}`, {
-          status: destination.droppableId,
-        });
+        await axios.patch(
+          `${import.meta.env.VITE_BACKEND_URL}/tasks/${task.id}`,
+          {
+            status: destination.droppableId,
+          }
+        );
         fetchTasks(); // Refresh after drag
       } catch (error) {
         console.error("Error updating task status:", error);
@@ -45,7 +49,7 @@ function App() {
   const handleDeleteTask = async (taskId) => {
     try {
       const response = await axios.delete(
-        `http://localhost:3001/tasks/${taskId}`
+        `${import.meta.env.VITE_BACKEND_URL}/tasks/${taskId}`
       );
       console.log("Delete response:", response.data);
       if (response.status === 200 || response.status === 204) {
@@ -61,18 +65,12 @@ function App() {
   };
 
   return (
-    <div className="app" data-theme={isDarkMode ? "dark" : "light"}>
+    <div className="app">
       <header className="header">
         <h1>Sector A</h1>
         <div>
           <button onClick={() => setIsCreateModalOpen(true)}>
             Create Task
-          </button>
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            style={{ marginLeft: "10px", padding: "5px 10px" }}
-          >
-            {isDarkMode ? "Light Mode" : "Dark Mode"}
           </button>
         </div>
       </header>

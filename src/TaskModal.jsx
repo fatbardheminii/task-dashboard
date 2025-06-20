@@ -1,57 +1,69 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import axios from "axios";
-import "./TaskModal.css";
+import "./CreateTaskModal.css";
 
-function TaskModal({ task, onClose }) {
-  const [comments, setComments] = useState([]);
-  const [newComment, setNewComment] = useState("");
+function CreateTaskModal({ onClose, onTaskCreated }) {
+  const [title, setTitle] = useState("");
+  const [image, setImage] = useState(null); // Base64 string or null
+  const [description, setDescription] = useState("");
+  const [location, setLocation] = useState("");
 
-  const fetchComments = useCallback(async () => {
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImage(reader.result); // Full base64 string (e.g., data:image/jpeg;base64,...)
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setImage(null); // Reset if no file selected
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault(); // Prevent default form submission behavior
+    console.log("Submit triggered", { title, image, description, location });
+    if (!title || !description || !location) {
+      console.log("Missing required fields");
+      return;
+    }
+
+    const taskData = {
+      title,
+      description,
+      location,
+      status: "New Tasks",
+      image: image ? image.split(",")[1] : null, // Extract base64 data (remove prefix) or null
+    };
+
     try {
-      const response = await axios.get(
-        `http://localhost:3001/tasks/${task.id}/comments`
+      const response = await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/tasks`,
+        taskData,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
-      setComments(response.data);
+      console.log("Task created response:", response.data);
+      onTaskCreated();
+      onClose();
     } catch (error) {
-      console.error("Error fetching comments:", error);
-    }
-  }, [task.id]);
-
-  useEffect(() => {
-    fetchComments();
-  }, [fetchComments]);
-
-  const handleCommentSubmit = async () => {
-    if (!newComment.trim()) return;
-    try {
-      await axios.post("http://localhost:3001/comments", {
-        task_id: task.id,
-        content: newComment,
-      });
-      setNewComment("");
-      fetchComments();
-    } catch (error) {
-      console.error("Error adding comment:", error);
+      console.error(
+        "Error creating task:",
+        error.response ? error.response.data : error.message
+      );
     }
   };
 
-  const handleDeleteComment = async (commentId) => {
-    try {
-      await axios.delete(`http://localhost:3001/comments/${commentId}`);
-      fetchComments();
-    } catch (error) {
-      console.error("Error deleting comment:", error);
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault(); // Prevent newline in textarea
+      handleSubmit();
     }
-  };
-
-  const handleDeleteTask = async () => {
-    try {
-      await axios.delete(`http://localhost:3001/tasks/${task.id}`);
-      onClose(); // Close modal after deletion
-      window.location.reload(); // Refresh page to update task list
-    } catch (error) {
-      console.error("Error deleting task:", error);
-    }
+    // Shift+Enter allows newlines in textarea
   };
 
   return (
@@ -60,41 +72,37 @@ function TaskModal({ task, onClose }) {
         <button className="close-button" onClick={onClose}>
           X
         </button>
-        <button className="trash-icon" onClick={handleDeleteTask}>
-          🗑️
-        </button>
-        <h2>{task.title}</h2>
-        {task.image && (
-          <img src={task.image} alt={task.title} style={{ maxWidth: "100%" }} />
-        )}
-        <p>
-          <strong>Description:</strong> {task.description}
-        </p>
-        <p>
-          <strong>Location:</strong> {task.location}
-        </p>
-        <div className="comment-section">
-          <h3>Comments</h3>
-          <div className="comments-list">
-            {comments.map((comment) => (
-              <div key={comment.id} className="comment">
-                <p>{comment.content}</p>
-                <button onClick={() => handleDeleteComment(comment.id)}>
-                  Delete
-                </button>
-              </div>
-            ))}
-          </div>
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Write a comment..."
+        <h2>Create Task</h2>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            placeholder="Target name *"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
           />
-          <button onClick={handleCommentSubmit}>Submit Comment</button>
-        </div>
+          <input type="file" accept="image/*" onChange={handleImageChange} />
+          <textarea
+            placeholder="Target description *"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+          <input
+            type="text"
+            placeholder="Target location *"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+          />
+          <div className="modal-buttons">
+            <button type="submit">Create Task</button>
+            <button type="button" onClick={onClose}>
+              Cancel
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
 }
 
-export default TaskModal;
+export default CreateTaskModal;
