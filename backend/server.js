@@ -5,15 +5,16 @@ const fs = require("fs");
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Configure CORS for local development
+// Configure CORS for local development and production
 const allowedOrigins = [
-  "http://localhost:5173",
-  "https://your-frontend.onrender.com", // Replace with actual frontend URL
+  "http://localhost:5173", // Local development
+  "https://task-dashboard-frontend-swkv.onrender.com", // Your frontend URL on Render
 ];
 
 app.use(
   cors({
     origin: allowedOrigins,
+    credentials: true, // Allow credentials if needed
   })
 );
 app.use(express.json({ limit: "10mb" }));
