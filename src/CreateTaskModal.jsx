@@ -21,8 +21,9 @@ function CreateTaskModal({ onClose, onTaskCreated }) {
     }
   };
 
-  const handleSubmit = async () => {
-    console.log("Submit clicked", { title, image, description, location });
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault(); // Prevent default form submission behavior
+    console.log("Submit triggered", { title, image, description, location });
     if (!title || !description || !location) {
       console.log("Missing required fields");
       return;
@@ -38,7 +39,7 @@ function CreateTaskModal({ onClose, onTaskCreated }) {
 
     try {
       const response = await axios.post(
-        "http://localhost:3001/tasks",
+        `${import.meta.env.VITE_BACKEND_URL}/tasks`,
         taskData,
         {
           headers: {
@@ -57,6 +58,14 @@ function CreateTaskModal({ onClose, onTaskCreated }) {
     }
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault(); // Prevent newline in textarea
+      handleSubmit();
+    }
+    // Shift+Enter allows newlines in textarea
+  };
+
   return (
     <div className="modal-overlay">
       <div className="modal-content">
@@ -64,28 +73,33 @@ function CreateTaskModal({ onClose, onTaskCreated }) {
           X
         </button>
         <h2>Create Task</h2>
-        <input
-          type="text"
-          placeholder="Target name *"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <input type="file" accept="image/*" onChange={handleImageChange} />
-        <textarea
-          placeholder="Target description *"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-        <input
-          type="text"
-          placeholder="Target location *"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
-        <div className="modal-buttons">
-          <button onClick={handleSubmit}>Create Task</button>
-          <button onClick={onClose}>Cancel</button>
-        </div>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            placeholder="Target name *"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <input type="file" accept="image/*" onChange={handleImageChange} />
+          <textarea
+            placeholder="Target description *"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+          <input
+            type="text"
+            placeholder="Target location *"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+          />
+          <div className="modal-buttons">
+            <button type="submit">Create Task</button>
+            <button type="button" onClick={onClose}>
+              Cancel
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
