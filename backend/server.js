@@ -6,9 +6,14 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 // Configure CORS for local development
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://your-frontend.onrender.com", // Replace with actual frontend URL
+];
+
 app.use(
   cors({
-    origin: "http://localhost:5174", // Local frontend origin
+    origin: allowedOrigins,
   })
 );
 app.use(express.json({ limit: "10mb" }));
