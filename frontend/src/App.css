@@ -1,13 +1,10 @@
 :root {
   --font-base: 16px;
   --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-  --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
   --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
   
-  --glass-bg: rgba(255, 255, 255, 0.1);
-  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-bg: rgba(255, 255, 255, 0.4);
+  --glass-border: rgb(255, 255, 255);
   
   --text-primary: #1a202c;
   --text-secondary: #4a5568;
@@ -114,7 +111,7 @@ body {
   align-items: center;
 }
 
-.btn {
+.header-btn {
   position: relative;
   padding: 0.75rem 1.5rem;
   border: none;
@@ -125,11 +122,15 @@ body {
   transition: all var(--transition-normal);
   overflow: hidden;
   text-transform: uppercase;
+  text-align: center;
   letter-spacing: 0.5px;
   z-index: 1;
+  background: var(--primary-gradient);
+  color: var(--text-light);
+  box-shadow: var(--shadow-md);
 }
 
-.btn::before {
+.header-btn::before {
   content: '';
   position: absolute;
   top: 0;
@@ -139,35 +140,16 @@ body {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
   transition: left 0.6s ease;
   z-index: -1;
-  pointer-events: none; 
+  pointer-events: none;
 }
 
-
-.btn:hover::before {
+.header-btn:hover::before {
   left: 100%;
 }
 
-.btn-primary {
-  background: var(--primary-gradient);
-  color: var(--text-light);
-  box-shadow: var(--shadow-md);
-}
-
-.btn-primary:hover {
+.header-btn:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-xl), var(--shadow-glow);
-}
-
-.btn-secondary {
-  background: var(--glass-bg);
-  color: var(--text-primary);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(var(--blur-amount));
-}
-
-.btn-secondary:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
 }
 
 .task-sections {
@@ -183,17 +165,16 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-lg);
   padding: 1.5rem;
-  height: 80vh;
+  height: 70vh;
   min-height: 70vh;
   box-shadow: var(--shadow-lg);
   transition: all var(--transition-normal);
   position: relative;
-  overflow-y: auto;
 }
 
 .task-column::before {
   content: '';
-  position: absolute;
+  position: personally absolute;
   top: 0;
   left: 0;
   width: 100%;
@@ -237,9 +218,34 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem; /* optional: adds spacing between tasks */
-}
+  gap: 1rem;
+  max-height: calc(100% - 3.5rem); /* Constrain to parent height minus header */
 
+  /* Custom Scrollbar Styles */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--text-secondary) var(--glass-bg); /* Firefox: thumb, track */
+
+  /* WebKit Browsers (Chrome, Safari, Edge) */
+  &::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--glass-bg);
+    border-radius: var(--border-radius-sm);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--text-secondary);
+    border-radius: var(--border-radius-sm);
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+  }
+
+  &::-webkit-scrollbar-thumb:hover,
+  &::-webkit-scrollbar-thumb:active {
+    background: #2d3748; /* Darker grey for hover/scroll */
+  }
+}
 
 .task-card {
   background: var(--bg-card);
@@ -334,15 +340,14 @@ body {
 
 input::-moz-placeholder,
 textarea::-moz-placeholder {
-  color: #000;
+  color: var(--text-muted);
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #000;
+  color: var(--text-muted);
 }
 
-/* Responsive Design */
 @media (max-width: 767px) {
   .app {
     padding: 1rem;

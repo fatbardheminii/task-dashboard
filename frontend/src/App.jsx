@@ -69,7 +69,7 @@ function App() {
       <header className="header">
         <h1>Sector A</h1>
         <div>
-          <button onClick={() => setIsCreateModalOpen(true)}>
+          <button className="header-btn" onClick={() => setIsCreateModalOpen(true)}>
             Create Task
           </button>
         </div>

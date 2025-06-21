@@ -1,14 +1,16 @@
 :root {
   --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   --text-primary: #1a202c;
+  --text-secondary: #4a5568;
   --text-muted: #718096;
   --glass-bg: rgba(255, 255, 255, 0.1);
   --glass-border: rgba(255, 255, 255, 0.2);
-  --dark-glass-bg: rgba(0, 0, 0, 0.1);
-  --dark-glass-border: rgba(255, 255, 255, 0.1);
   --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15), 0 10px 10px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 20px rgba(102, 126, 234, 0.3);
   --border-radius-xl: 24px;
+  --border-radius-md: 12px;
   --transition-normal: 0.3s ease-out;
+  --blur-amount: 20px;
 }
 
 .modal-overlay {
@@ -30,14 +32,14 @@
   background: var(--bg-card);
   border-radius: var(--border-radius-xl);
   padding: 2.5rem;
-  width: min(90vw, 700px); /* Overwrite to match template */
+  width: min(90vw, 700px);
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: var(--shadow-xl);
   position: relative;
   animation: slideUp 0.4s ease-out;
   border: 1px solid var(--glass-border);
-  box-sizing: border-box; /* Keep previous fix */
+  box-sizing: border-box;
 }
 
 .close-button {
@@ -143,13 +145,13 @@
   width: 100%;
   padding: 1rem;
   margin-bottom: 1.5rem;
-  border: 2px solid var(--glass-border);
+  border: 2px solid var(--text-secondary);
   border-radius: var(--border-radius-md);
   font-size: 1rem;
   background: var(--glass-bg);
   backdrop-filter: blur(var(--blur-amount));
   transition: all var(--transition-normal);
-  box-sizing: border-box; /* Keep previous fix */
+  box-sizing: border-box;
   resize: vertical;
 }
 
@@ -165,6 +167,8 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   z-index: 1;
+  background: var(--primary-gradient);
+  color: var(--text-light);
 }
 
 .modal-content button:hover {
@@ -172,7 +176,6 @@
   box-shadow: var(--shadow-xl), var(--shadow-glow);
 }
 
-/* Responsive Adjustments */
 @media (max-width: 768px) {
   .modal-content {
     padding: 1.5rem;
