@@ -69,8 +69,7 @@
   text-align: center;
 }
 
-.modal-content input[type="text"],
-.modal-content input[type="file"],
+.modal-content input,
 .modal-content textarea {
   width: 100%;
   padding: 1rem;
@@ -82,11 +81,17 @@
   backdrop-filter: blur(var(--blur-amount));
   transition: all var(--transition-normal);
   box-sizing: border-box;
+  color: #000;
 }
 
 .modal-content textarea {
   height: 120px;
   resize: vertical;
+}
+
+.modal-content input::placeholder,
+.modal-content textarea::placeholder {
+  color: var(--text-muted);
 }
 
 .modal-buttons {
@@ -146,5 +151,10 @@
 
   .modal-buttons {
     flex-direction: column;
+  }
+
+  .modal-content input,
+  .modal-content textarea {
+    font-size: 1rem;
   }
 }

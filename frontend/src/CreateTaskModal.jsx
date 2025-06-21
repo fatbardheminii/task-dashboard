@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import "./CreateTaskModal.css";
+import { FaTimes } from "react-icons/fa";
 
 function CreateTaskModal({ onClose, onTaskCreated }) {
   const [title, setTitle] = useState("");
@@ -40,11 +41,9 @@ function CreateTaskModal({ onClose, onTaskCreated }) {
     };
 
     try {
-      await axios.post(
-        `${import.meta.env.VITE_BACKEND_URL}/tasks`,
-        taskData,
-        { headers: { "Content-Type": "application/json" } }
-      );
+      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/tasks`, taskData, {
+        headers: { "Content-Type": "application/json" },
+      });
       onTaskCreated();
       onClose();
     } catch (error) {
@@ -70,13 +69,10 @@ function CreateTaskModal({ onClose, onTaskCreated }) {
     <div className="modal-overlay">
       <div className="modal-content create-task-modal">
         <button className="close-button" onClick={onClose}>
-          X
+          <FaTimes />
         </button>
         <h2>Create Task</h2>
-
-        {/* Error message block */}
         {error && <p className="error-message">{error}</p>}
-
         <form onSubmit={handleSubmit}>
           <input
             type="text"

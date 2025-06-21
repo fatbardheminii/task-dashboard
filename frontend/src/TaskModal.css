@@ -42,6 +42,12 @@
   box-sizing: border-box;
 }
 
+.task-details {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100% - 2.5rem);
+}
+
 .task-modal .close-button {
   color: #000;
   background: none;
@@ -112,6 +118,7 @@
   justify-content: space-between;
   align-items: center;
   transition: all var(--transition-normal);
+  position: relative;
 }
 
 .comment:hover {
@@ -127,17 +134,34 @@
 .task-modal .trash-icon {
   color: red;
   background: none;
+  border: none;
+  padding: 0;
   font-size: 1.5rem;
   position: absolute;
   bottom: 10px;
   right: 10px;
   transition: transform var(--transition-normal);
+  z-index: 10;
 }
 
 .task-modal .trash-icon:hover {
   transform: scale(1.01) translateY(-2px);
 }
 
+.comment-delete {
+  color: red;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 1rem;
+  transition: transform var(--transition-normal);
+}
+
+.comment-delete:hover {
+  transform: scale(1.01) translateY(-2px);
+}
+
+.modal-content input,
 .modal-content textarea {
   width: 100%;
   padding: 1rem;
@@ -149,7 +173,17 @@
   backdrop-filter: blur(var(--blur-amount));
   transition: all var(--transition-normal);
   box-sizing: border-box;
+  color: #000;
+}
+
+.modal-content textarea {
+  height: 120px;
   resize: vertical;
+}
+
+.modal-content input::placeholder,
+.modal-content textarea::placeholder {
+  color: var(--text-muted);
 }
 
 .modal-content button {
@@ -184,6 +218,7 @@
   }
 
   .modal-content p,
+  .modal-content input,
   .modal-content textarea,
   .modal-content button {
     font-size: 1rem;

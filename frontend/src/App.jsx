@@ -4,6 +4,7 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import TaskModal from "./TaskModal";
 import CreateTaskModal from "./CreateTaskModal";
 import "./App.css";
+import { FaTrashAlt } from "react-icons/fa";
 
 function App() {
   const [tasks, setTasks] = useState([]);
@@ -103,7 +104,7 @@ function App() {
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
-                              onClick={() => setSelectedTask(task)} // Restore modal open on click
+                              onClick={() => setSelectedTask(task)}
                             >
                               <span className="task-title">
                                 <strong>{task.title}</strong>
@@ -121,11 +122,11 @@ function App() {
                               <button
                                 className="trash-icon"
                                 onClick={(e) => {
-                                  e.stopPropagation(); // Prevent modal open on trash click
+                                  e.stopPropagation();
                                   handleDeleteTask(task.id);
                                 }}
                               >
-                                🗑️
+                                <FaTrashAlt />
                               </button>
                             </div>
                           )}

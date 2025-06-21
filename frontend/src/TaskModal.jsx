@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import "./TaskModal.css";
+import { FaTrashAlt, FaTimes } from "react-icons/fa";
 
 function TaskModal({ task, onClose }) {
   const [comments, setComments] = useState([]);
@@ -62,39 +63,42 @@ function TaskModal({ task, onClose }) {
     <div className="modal-overlay">
       <div className="modal-content task-modal">
         <button className="close-button" onClick={onClose}>
-          X
+          <FaTimes />
         </button>
         <button className="trash-icon" onClick={handleDeleteTask}>
-          🗑️
+          <FaTrashAlt />
         </button>
-        <h2>{task.title}</h2>
-        {task.image && (
-          <img src={task.image} alt={task.title} style={{ maxWidth: "100%" }} />
-        )}
-        <p>
-          <strong>Description:</strong> {task.description}
-        </p>
-        <p>
-          <strong>Location:</strong> {task.location}
-        </p>
-        <div className="comment-section">
-          <h3>Comments</h3>
-          <div className="comments-list">
-            {comments.map((comment) => (
-              <div key={comment.id} className="comment">
-                <p>{comment.content}</p>
-                <button onClick={() => handleDeleteComment(comment.id)}>
-                  Delete
-                </button>
-              </div>
-            ))}
+        <div className="task-details">
+          <h2>{task.title}</h2>
+          {task.image && <img src={task.image} alt={task.title} />}
+          <p>
+            <strong>Description:</strong> {task.description}
+          </p>
+          <p>
+            <strong>Location:</strong> {task.location}
+          </p>
+          <div className="comment-section">
+            <h3>Comments</h3>
+            <div className="comments-list">
+              {comments.map((comment) => (
+                <div key={comment.id} className="comment">
+                  <p>{comment.content}</p>
+                  <button
+                    className="comment-delete"
+                    onClick={() => handleDeleteComment(comment.id)}
+                  >
+                    <FaTrashAlt />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <textarea
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Write a comment..."
+            />
+            <button onClick={handleCommentSubmit}>Submit Comment</button>
           </div>
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Write a comment..."
-          />
-          <button onClick={handleCommentSubmit}>Submit Comment</button>
         </div>
       </div>
     </div>
