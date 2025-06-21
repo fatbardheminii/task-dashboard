@@ -50,7 +50,6 @@ body {
   color: var(--text-primary);
   line-height: 1.6;
   overflow-x: hidden;
-  transition: all var(--transition-normal);
 }
 
 #root {
@@ -102,7 +101,7 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0;
-  text-shadow: 0 0 30px rgba(102, 126, 234, 0.5);
+  text-shadow: 0 0 30px rgba(102, 255, 234, 0.5);
 }
 
 .header div {
@@ -174,7 +173,7 @@ body {
 
 .task-column::before {
   content: '';
-  position: personally absolute;
+  position: absolute;
   top: 0;
   left: 0;
   width: 100%;
@@ -261,7 +260,6 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  overflow: hidden;
   width: 95%;
 }
 
@@ -296,26 +294,36 @@ body {
   font-weight: bold;
 }
 
-.task-image {
-  width: 100px;
-  height: 100px;
-  object-fit: contain;
-  margin-bottom: 1rem;
-  border-radius: var(--border-radius-sm);
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--transition-normal);
-  max-height: 150px;
-  width: 100%;
-}
-
-.task-card:hover .task-image {
-  transform: scale(1.1);
-}
-
 .task-location {
   font-size: 1rem;
   color: var(--text-muted);
-  margin-bottom: 1rem;
+  margin-bottom: .5rem;
+}
+
+.task-image-indicator {
+  font-size: 1rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.task-image-indicator::before {
+  content: '\1F4F7'; /* Unicode for camera icon */
+  font-size: 1.25rem;
+  display: inline-block;
+}
+
+.span-flex {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  height: auto;
+}
+
+.span-flex > span {
+  margin-right: .5rem;
 }
 
 .trash-icon {
