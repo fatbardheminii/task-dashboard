@@ -69,7 +69,10 @@ function App() {
       <header className="header">
         <h1>Sector A</h1>
         <div>
-          <button className="header-btn" onClick={() => setIsCreateModalOpen(true)}>
+          <button
+            className="header-btn"
+            onClick={() => setIsCreateModalOpen(true)}
+          >
             Create Task
           </button>
         </div>
@@ -105,16 +108,16 @@ function App() {
                               <span className="task-title">
                                 <strong>{task.title}</strong>
                               </span>
-                              {task.image && (
-                                <img
-                                  src={task.image}
-                                  alt={task.title}
-                                  className="task-image"
-                                />
-                              )}
-                              <span className="task-location">
-                                {task.location}
-                              </span>
+                              <div className="span-flex">
+                                {task.image && (
+                                  <span className="task-image-indicator">
+                                    Img |
+                                  </span>
+                                )}
+                                <span className="task-location">
+                                  {task.location}
+                                </span>
+                              </div>
                               <button
                                 className="trash-icon"
                                 onClick={(e) => {
