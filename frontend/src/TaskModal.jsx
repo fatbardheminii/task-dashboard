@@ -65,9 +65,6 @@ function TaskModal({ task, onClose }) {
         <button className="close-button" onClick={onClose}>
           <FaTimes />
         </button>
-        <button className="trash-icon" onClick={handleDeleteTask}>
-          <FaTrashAlt />
-        </button>
         <div className="task-details">
           <h2>{task.title}</h2>
           {task.image && <img src={task.image} alt={task.title} />}
@@ -100,6 +97,9 @@ function TaskModal({ task, onClose }) {
             <button onClick={handleCommentSubmit}>Submit Comment</button>
           </div>
         </div>
+        <button className="trash-icon" onClick={handleDeleteTask}>
+          <FaTrashAlt />
+        </button>
       </div>
     </div>
   );

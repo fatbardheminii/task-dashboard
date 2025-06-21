@@ -138,7 +138,6 @@
   padding: 0;
   font-size: 1.5rem;
   position: absolute;
-  bottom: 10px;
   right: 10px;
   transition: transform var(--transition-normal);
   z-index: 10;
