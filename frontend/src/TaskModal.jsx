@@ -60,7 +60,7 @@ function TaskModal({ task, onClose }) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content">
+      <div className="modal-content task-modal">
         <button className="close-button" onClick={onClose}>
           X
         </button>

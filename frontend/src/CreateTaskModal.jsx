@@ -68,7 +68,7 @@ function CreateTaskModal({ onClose, onTaskCreated }) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content">
+      <div className="modal-content create-task-modal">
         <button className="close-button" onClick={onClose}>
           X
         </button>

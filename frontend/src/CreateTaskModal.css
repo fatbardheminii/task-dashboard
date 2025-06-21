@@ -44,21 +44,18 @@
   box-sizing: border-box;
 }
 
-.close-button {
+.create-task-modal .close-button {
+  color: #000;
   background: none;
-  border: none;
   font-size: 1.5rem;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: var(--border-radius-sm);
-  transition: all var(--transition-fast);
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  transition: transform var(--transition-normal);
 }
 
-.close-button:hover {
-  background: var(--danger-gradient);
-  color: var(--text-light);
-  transform: rotate(90deg);
+.create-task-modal .close-button:hover {
+  transform: translateY(-2px);
 }
 
 .modal-content h2 {
