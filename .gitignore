@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 *.env
 backend/tasks.db
+backend/tasks.db-shm
+backend/tasks.db-wal
