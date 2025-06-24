@@ -1,38 +1,46 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./TaskModal.css";
-import { FaTrashAlt, FaTimes } from "react-icons/fa";
+import { FaTimes } from "react-icons/fa";
 
 function TaskModal({ task, onClose }) {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
-
-  const fetchComments = useCallback(async () => {
-    try {
-      const response = await axios.get(
-        `${import.meta.env.VITE_BACKEND_URL}/tasks/${task.id}/comments`
-      );
-      setComments(response.data);
-    } catch (error) {
-      console.error("Error fetching comments:", error);
-    }
-  }, [task.id]);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    const fetchComments = async () => {
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_BACKEND_URL}/tasks/${task.id}/comments`
+        );
+        setComments(response.data);
+      } catch (err) {
+        console.log(err);
+      }
+    };
     fetchComments();
-  }, [fetchComments]);
+  }, [task.id]);
 
-  const handleCommentSubmit = async () => {
-    if (!newComment.trim()) return;
+  const handleAddComment = async (e) => {
+    e.preventDefault();
+    if (!newComment.trim()) {
+      setError("Comment cannot be empty.");
+      return;
+    }
     try {
-      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/comments`, {
-        task_id: task.id,
-        content: newComment,
-      });
+      const response = await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/comments`,
+        { task_id: task.id, content: newComment }
+      );
+      setComments([
+        ...comments,
+        { id: response.data.id, task_id: task.id, content: newComment },
+      ]);
       setNewComment("");
-      fetchComments();
-    } catch (error) {
-      console.error("Error adding comment:", error);
+      setError("");
+    } catch (err) {
+      console.log(err);
     }
   };
 
@@ -41,21 +49,10 @@ function TaskModal({ task, onClose }) {
       await axios.delete(
         `${import.meta.env.VITE_BACKEND_URL}/comments/${commentId}`
       );
-      fetchComments();
-    } catch (error) {
-      console.error("Error deleting comment:", error);
-    }
-  };
-
-  const handleDeleteTask = async () => {
-    try {
-      await axios.delete(
-        `${import.meta.env.VITE_BACKEND_URL}/tasks/${task.id}`
-      );
-      onClose();
-      window.location.reload();
-    } catch (error) {
-      console.error("Error deleting task:", error);
+      setComments(comments.filter((comment) => comment.id !== commentId));
+      setError("");
+    } catch (err) {
+      console.log(err);
     }
   };
 
@@ -65,41 +62,48 @@ function TaskModal({ task, onClose }) {
         <button className="close-button" onClick={onClose}>
           <FaTimes />
         </button>
-        <div className="task-details">
-          <h2>{task.title}</h2>
-          {task.image && <img src={task.image} alt={task.title} />}
-          <p>
-            <strong>Description:</strong> {task.description}
-          </p>
-          <p>
-            <strong>Location:</strong> {task.location}
-          </p>
-          <div className="comment-section">
-            <h3>Comments</h3>
-            <div className="comments-list">
-              {comments.map((comment) => (
-                <div key={comment.id} className="comment">
-                  <p>{comment.content}</p>
-                  <button
-                    className="comment-delete"
-                    onClick={() => handleDeleteComment(comment.id)}
-                  >
-                    <FaTrashAlt />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <textarea
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Write a comment..."
+        <h2>{task.title}</h2>
+        {error && <p className="error-message">{error}</p>}
+        <p>
+          <strong>Description:</strong> {task.description}
+        </p>
+        <p>
+          <strong>Location:</strong> {task.location}
+        </p>
+        <p>
+          <strong>Status:</strong> {task.status}
+        </p>
+        {task.image && (
+          <div className="task-image">
+            <img
+              src={task.image}
+              alt="Task Image"
+              style={{ maxWidth: "100%", marginTop: "1rem" }}
             />
-            <button onClick={handleCommentSubmit}>Submit Comment</button>
           </div>
+        )}
+        <h3>Comments</h3>
+        <div className="comments-section">
+          {comments.map((comment) => (
+            <div key={comment.id} className="comment">
+              <p>{comment.content}</p>
+              <button
+                className="delete-comment"
+                onClick={() => handleDeleteComment(comment.id)}
+              >
+                Delete
+              </button>
+            </div>
+          ))}
         </div>
-        <button className="trash-icon" onClick={handleDeleteTask}>
-          <FaTrashAlt />
-        </button>
+        <form onSubmit={handleAddComment}>
+          <textarea
+            placeholder="Add a comment..."
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+          />
+          <button type="submit">Add Comment</button>
+        </form>
       </div>
     </div>
   );
