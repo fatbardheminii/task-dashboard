@@ -4,45 +4,105 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import TaskModal from "./TaskModal";
 import CreateTaskModal from "./CreateTaskModal";
 import "./App.css";
-import { FaTrashAlt } from "react-icons/fa";
+import { FaTrashAlt, FaEdit } from "react-icons/fa";
+
+// Standardize column IDs to match server status values
+const COLUMNS = {
+  NEW_TASKS: "New Tasks",
+  IN_PROGRESS: "In Progress",
+  COMPLETED: "Completed",
+};
 
 function App() {
   const [tasks, setTasks] = useState([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [taskToEdit, setTaskToEdit] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchTasks(); // Initial fetch
-    const interval = setInterval(fetchTasks, 5000); // Poll every 5 seconds
-    return () => clearInterval(interval); // Cleanup on unmount
+    fetchTasks();
+    const interval = setInterval(fetchTasks, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchTasks = async () => {
     try {
       const response = await axios.get(
-        `${import.meta.env.VITE_BACKEND_URL}/tasks`
+        `${import.meta.env.VITE_BACKEND_URL}/tasks?_=${Date.now()}`
       );
-      setTasks(response.data);
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
+      setTasks((prevTasks) => {
+        const updatedTasks = response.data.map((newTask) => {
+          const existingTask = prevTasks.find((t) => t.id === newTask.id);
+          if (
+            existingTask &&
+            (existingTask.title !== newTask.title ||
+              existingTask.description !== newTask.description ||
+              existingTask.location !== newTask.location ||
+              (existingTask.image !== null &&
+                existingTask.image !== newTask.image))
+          ) {
+            setError("Some changes may not have saved. Please try again.");
+          }
+          return existingTask ? { ...newTask, ...existingTask } : newTask;
+        });
+        return updatedTasks;
+      });
+    } catch (_err) {
+      console.log(_err);
+      setError("Failed to fetch tasks.");
+    }
+  };
+
+  const updateTaskStatus = async (
+    taskId,
+    status,
+    retryCount = 0,
+    maxRetries = 2
+  ) => {
+    const payload = { status };
+    try {
+      await axios.patch(
+        `${import.meta.env.VITE_BACKEND_URL}/tasks/${taskId}/status`,
+        payload,
+        { headers: { "Content-Type": "application/json" } }
+      );
+      return true;
+    } catch (_err) {
+      console.log(_err);
+      if (retryCount < maxRetries && _err.response?.status !== 400) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return updateTaskStatus(taskId, status, retryCount + 1, maxRetries);
+      }
+      throw _err;
     }
   };
 
   const onDragEnd = async (result) => {
-    if (!result.destination) return;
+    if (!result.destination) {
+      return;
+    }
     const { source, destination } = result;
     if (source.droppableId !== destination.droppableId) {
       const task = tasks.find((t) => t.id === parseInt(result.draggableId));
+      if (!task) {
+        return;
+      }
+      const newStatus = destination.droppableId;
+      setTasks((prevTasks) =>
+        prevTasks.map((t) =>
+          t.id === task.id ? { ...t, status: newStatus } : t
+        )
+      );
       try {
-        await axios.patch(
-          `${import.meta.env.VITE_BACKEND_URL}/tasks/${task.id}`,
-          {
-            status: destination.droppableId,
-          }
+        await updateTaskStatus(task.id, newStatus);
+        await fetchTasks();
+      } catch (_err) {
+        console.log(_err);
+        setError(
+          `Failed to move task ${task.title || "Untitled"}. Please try again.`
         );
-        fetchTasks(); // Refresh after drag
-      } catch (error) {
-        console.error("Error updating task status:", error);
+        await fetchTasks();
       }
     }
   };
@@ -52,16 +112,36 @@ function App() {
       const response = await axios.delete(
         `${import.meta.env.VITE_BACKEND_URL}/tasks/${taskId}`
       );
-      console.log("Delete response:", response.data);
       if (response.status === 200 || response.status === 204) {
         setTasks(tasks.filter((task) => task.id !== taskId));
-        fetchTasks(); // Ensure sync with server
-      } else if (response.status === 404) {
-        console.error("Task not found, refreshing tasks");
-        fetchTasks();
+        await fetchTasks();
+      } else {
+        setError("Failed to delete task.");
+        await fetchTasks();
       }
-    } catch (error) {
-      console.error("Error deleting task:", error);
+    } catch (_err) {
+      console.log(_err);
+      setError("Failed to delete task.");
+    }
+  };
+
+  const handleTaskUpdate = async (_updatedTask) => {
+    if (!_updatedTask || typeof _updatedTask !== "object" || !_updatedTask.id) {
+      setError("Invalid task update data received.");
+      await fetchTasks();
+      return;
+    }
+    setTasks((prevTasks) =>
+      prevTasks.map((task) =>
+        task.id === _updatedTask.id ? { ...task, ..._updatedTask } : task
+      )
+    );
+    setError("");
+    try {
+      await fetchTasks();
+    } catch (_err) {
+      console.log(_err);
+      setError("Failed to sync task updates.");
     }
   };
 
@@ -72,15 +152,19 @@ function App() {
         <div>
           <button
             className="header-btn"
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => {
+              setTaskToEdit(null);
+              setIsCreateModalOpen(true);
+            }}
           >
             Create Task
           </button>
         </div>
       </header>
+      {error && <p className="error-message">{error}</p>}
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="task-sections">
-          {["New Tasks", "In Progress", "Completed"].map((status) => (
+          {Object.values(COLUMNS).map((status) => (
             <Droppable key={status} droppableId={status}>
               {(provided) => (
                 <div
@@ -107,7 +191,7 @@ function App() {
                               onClick={() => setSelectedTask(task)}
                             >
                               <span className="task-title">
-                                <strong>{task.title}</strong>
+                                <strong>{task.title || "Untitled"}</strong>
                               </span>
                               <div className="span-flex">
                                 {task.image && (
@@ -116,18 +200,30 @@ function App() {
                                   </span>
                                 )}
                                 <span className="task-location">
-                                  {task.location}
+                                  {task.location || "No location"}
                                 </span>
                               </div>
-                              <button
-                                className="trash-icon"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteTask(task.id);
-                                }}
-                              >
-                                <FaTrashAlt />
-                              </button>
+                              <div className="icons-container">
+                                <button
+                                  className="edit-icon"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setTaskToEdit(task);
+                                    setIsCreateModalOpen(true);
+                                  }}
+                                >
+                                  <FaEdit />
+                                </button>
+                                <button
+                                  className="trash-icon"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteTask(task.id);
+                                  }}
+                                >
+                                  <FaTrashAlt />
+                                </button>
+                              </div>
                             </div>
                           )}
                         </Draggable>
@@ -145,8 +241,13 @@ function App() {
       )}
       {isCreateModalOpen && (
         <CreateTaskModal
-          onClose={() => setIsCreateModalOpen(false)}
+          taskToEdit={taskToEdit}
+          onClose={() => {
+            setIsCreateModalOpen(false);
+            setTaskToEdit(null);
+          }}
           onTaskCreated={fetchTasks}
+          onTaskUpdated={handleTaskUpdate}
         />
       )}
     </div>
