@@ -27,12 +27,11 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 
 // Resolve database path
-const dbPath = path.resolve(
-  __dirname,
-  process.env.RENDER ? "/data/tasks.db" : "tasks.db"
-);
+const isRender = process.env.RENDER === "true";
+const dbDir = isRender ? "/tmp" : __dirname; // Use /tmp on Render, __dirname locally
+const dbPath = path.resolve(dbDir, "tasks.db");
 
-// Check database file permissions
+// Check database file permissions and create if necessary
 try {
   if (fs.existsSync(dbPath)) {
     fs.accessSync(dbPath, fs.constants.W_OK);
@@ -310,11 +309,9 @@ app.patch("/tasks/:id", (req, res) => {
         (fetchErr, updatedTask) => {
           if (fetchErr) {
             console.error("Error fetching updated task:", fetchErr);
-            return res
-              .status(500)
-              .json({
-                error: "Failed to fetch updated task: " + fetchErr.message,
-              });
+            return res.status(500).json({
+              error: "Failed to fetch updated task: " + fetchErr.message,
+            });
           }
           if (!updatedTask) {
             console.error(`Task with ID ${taskId} not found after update`);
