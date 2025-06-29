@@ -1,8 +1,6 @@
 const express = require("express");
-const sqlite3 = require("sqlite3").verbose();
+const { Pool } = require("pg");
 const cors = require("cors");
-const fs = require("fs");
-const path = require("path");
 const app = express();
 const port = process.env.PORT || 3001;
 
@@ -26,138 +24,81 @@ app.use(
 );
 app.use(express.json({ limit: "10mb" }));
 
-// Resolve database path
-const isRender = process.env.RENDER === "true";
-const dbDir = isRender ? "/tmp" : __dirname; // Use /tmp on Render, __dirname locally
-const dbPath = path.resolve(dbDir, "tasks.db");
+// Initialize PostgreSQL
+const pool = new Pool({
+  connectionString: process.env.POSTGRES_URL,
+  ssl: { rejectUnauthorized: false }, // Required for Vercel Postgres/Neon
+});
 
-// Check database file permissions and create if necessary
-try {
-  if (fs.existsSync(dbPath)) {
-    fs.accessSync(dbPath, fs.constants.W_OK);
-    console.log("Database file is writable");
-  } else {
-    fs.writeFileSync(dbPath, "", { mode: 0o666 });
-    console.log("Database file created");
-  }
-} catch (error) {
-  console.error("Database file access error:", error);
-  process.exit(1);
-}
-
-// Initialize database
-let db;
-try {
-  db = new sqlite3.Database(
-    dbPath,
-    sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE,
-    (err) => {
-      if (err) {
-        console.error("Database connection error:", err);
-        process.exit(1);
-      }
-      console.log("Database connected successfully");
-    }
-  );
-
-  // Apply PRAGMA settings
-  db.run("PRAGMA journal_mode = WAL;", (err) => {
-    if (err) console.error("PRAGMA journal_mode error:", err);
-  });
-  db.run("PRAGMA synchronous = NORMAL;", (err) => {
-    if (err) console.error("PRAGMA synchronous error:", err);
-  });
-
-  // Check database integrity
-  db.get("PRAGMA integrity_check;", (err, result) => {
-    if (err || result.integrity_check !== "ok") {
-      console.error("Database integrity check failed:", err || result);
-      process.exit(1);
-    }
-    console.log("Database integrity check passed");
-  });
-
-  // Create tables
-  db.serialize(() => {
-    db.run(
-      `CREATE TABLE IF NOT EXISTS tasks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+// Create tables
+(async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tasks (
+        id SERIAL PRIMARY KEY,
         title TEXT NOT NULL,
         image TEXT,
         description TEXT NOT NULL,
         location TEXT NOT NULL,
         status TEXT NOT NULL
-      )`,
-      (err) => {
-        if (err) {
-          console.error("Table creation error (tasks):", err);
-          process.exit(1);
-        }
-      }
-    );
-    db.run(
-      `CREATE TABLE IF NOT EXISTS comments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        task_id INTEGER,
-        content TEXT NOT NULL,
-        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-      )`,
-      (err) => {
-        if (err) {
-          console.error("Table creation error (comments):", err);
-          process.exit(1);
-        }
-      }
-    );
-  });
-} catch (error) {
-  console.error("Database initialization error:", error);
-  process.exit(1);
-}
+      );
+      CREATE TABLE IF NOT EXISTS comments (
+        id SERIAL PRIMARY KEY,
+        task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+        content TEXT NOT NULL
+      );
+    `);
+    console.log("Database tables created successfully");
+  } catch (error) {
+    console.error("Table creation error:", error);
+    process.exit(1);
+  }
+})();
 
-// Debug endpoint to inspect task
-app.get("/tasks/:id", (req, res) => {
-  console.log(`GET /tasks/${req.params.id} - Fetching task`);
+// GET /tasks/:id
+app.get("/tasks/:id", async (req, res) => {
   const taskId = parseInt(req.params.id);
   if (isNaN(taskId)) {
     return res.status(400).json({ error: "Invalid task ID" });
   }
-  db.get("SELECT * FROM tasks WHERE id = ?", [taskId], (err, row) => {
-    if (err) {
-      console.error("Error fetching task:", err);
-      return res.status(500).json({ error: "Failed to fetch task" });
-    }
-    if (!row) {
-      console.warn(`Task with ID ${taskId} not found`);
+  try {
+    const { rows } = await pool.query("SELECT * FROM tasks WHERE id = $1", [
+      taskId,
+    ]);
+    if (rows.length === 0) {
       return res.status(404).json({ error: "Task not found" });
     }
-    console.log(`Task fetched:`, row);
     res.json({
-      ...row,
-      image: row.image ? `data:image/jpeg;base64,${row.image}` : null,
+      ...rows[0],
+      image: rows[0].image ? `data:image/jpeg;base64,${rows[0].image}` : null,
     });
-  });
+  } catch (error) {
+    console.error("Error fetching task:", error);
+    res.status(500).json({ error: "Failed to fetch task" });
+  }
 });
 
-app.get("/tasks", (req, res) => {
+// GET /tasks
+app.get("/tasks", async (req, res) => {
   res.set({
     "Cache-Control": "no-store, no-cache, must-revalidate, private",
     Connection: "close",
   });
-  db.all("SELECT * FROM tasks", [], (err, rows) => {
-    if (err) {
-      console.error("Error fetching tasks:", err);
-      return res.status(500).json({ error: err.message });
-    }
+  try {
+    const { rows } = await pool.query("SELECT * FROM tasks");
     const tasksWithImages = rows.map((task) => ({
       ...task,
       image: task.image ? `data:image/jpeg;base64,${task.image}` : null,
     }));
     res.json(tasksWithImages);
-  });
+  } catch (error) {
+    console.error("Error fetching tasks:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-app.post("/tasks", (req, res) => {
+// POST /tasks
+app.post("/tasks", async (req, res) => {
   const { title, image, description, location, status } = req.body;
   if (!title || !description || !location.trim()) {
     return res.status(400).json({ error: "Missing required fields" });
@@ -168,23 +109,21 @@ app.post("/tasks", (req, res) => {
   if (image && !/^[A-Za-z0-9+/=]+$/.test(image)) {
     return res.status(400).json({ error: "Invalid base64 image data" });
   }
-
-  db.run(
-    "INSERT INTO tasks (title, image, description, location, status) VALUES (?, ?, ?, ?, ?)",
-    [title, image, description, location, status || "New Tasks"],
-    function (err) {
-      if (err) {
-        console.error("Error creating task:", err);
-        return res.status(500).json({ error: err.message });
-      }
-      res.status(201).json({ id: this.lastID });
-    }
-  );
+  try {
+    const { rows } = await pool.query(
+      "INSERT INTO tasks (title, image, description, location, status) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+      [title, image, description, location, status || "New Tasks"]
+    );
+    res.status(201).json({ id: rows[0].id });
+  } catch (error) {
+    console.error("Error creating task:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// Dedicated endpoint for status updates
-app.patch("/tasks/:id/status", (req, res) => {
-  let { status } = req.body;
+// PATCH /tasks/:id/status
+app.patch("/tasks/:id/status", async (req, res) => {
+  const { status } = req.body;
   const taskId = parseInt(req.params.id);
   if (isNaN(taskId)) {
     return res.status(400).json({ error: "Invalid task ID" });
@@ -192,8 +131,6 @@ app.patch("/tasks/:id/status", (req, res) => {
   if (!status) {
     return res.status(400).json({ error: "Status field is required" });
   }
-
-  status = status.trim();
   const validStatuses = ["New Tasks", "In Progress", "Completed"];
   const normalizedStatus = validStatuses.find(
     (valid) => valid.toLowerCase() === status.toLowerCase()
@@ -205,39 +142,30 @@ app.patch("/tasks/:id/status", (req, res) => {
       )}`,
     });
   }
-  status = normalizedStatus;
-
-  db.run(
-    "UPDATE tasks SET status = ? WHERE id = ?",
-    [status, taskId],
-    function (err) {
-      if (err) {
-        console.error("Error updating task status:", err);
-        return res.status(500).json({ error: "Failed to update task status" });
-      }
-      if (this.changes === 0) {
-        console.warn(`Task with ID ${taskId} not found`);
-        return res.status(404).json({ error: "Task not found" });
-      }
-      res.json({ updated: this.changes });
+  try {
+    const { rowCount } = await pool.query(
+      "UPDATE tasks SET status = $1 WHERE id = $2",
+      [normalizedStatus, taskId]
+    );
+    if (rowCount === 0) {
+      return res.status(404).json({ error: "Task not found" });
     }
-  );
+    res.json({ updated: rowCount });
+  } catch (error) {
+    console.error("Error updating task status:", error);
+    res.status(500).json({ error: "Failed to update task status" });
+  }
 });
 
-// General task update endpoint
-app.patch("/tasks/:id", (req, res) => {
-  console.log(`PATCH /tasks/${req.params.id} - Request body:`, req.body);
+// PATCH /tasks/:id
+app.patch("/tasks/:id", async (req, res) => {
   const taskId = parseInt(req.params.id);
   if (isNaN(taskId) || taskId <= 0) {
-    console.warn(`Invalid task ID: ${req.params.id}`);
     return res.status(400).json({ error: "Invalid task ID" });
   }
-
   const allowedFields = ["title", "image", "description", "location", "status"];
   const fields = [];
   const values = [];
-
-  // Validate fields
   const providedFields = Object.keys(req.body);
   const invalidFields = providedFields.filter(
     (field) => !allowedFields.includes(field)
@@ -247,8 +175,7 @@ app.patch("/tasks/:id", (req, res) => {
       .status(400)
       .json({ error: `Invalid fields: ${invalidFields.join(", ")}` });
   }
-
-  // Build update query
+  let paramIndex = 1;
   for (const field of allowedFields) {
     if (req.body.hasOwnProperty(field)) {
       if (
@@ -259,159 +186,133 @@ app.patch("/tasks/:id", (req, res) => {
           .status(400)
           .json({ error: `Empty value for ${field} is not allowed` });
       }
-      fields.push(`${field} = ?`);
+      fields.push(`${field} = $${paramIndex++}`);
       values.push(req.body[field] === null ? null : req.body[field]);
     }
   }
-
   if (fields.length === 0) {
     return res
       .status(400)
       .json({ error: "No valid fields provided to update" });
   }
-
-  const updateQuery = `UPDATE tasks SET ${fields.join(", ")} WHERE id = ?`;
+  const updateQuery = `UPDATE tasks SET ${fields.join(
+    ", "
+  )} WHERE id = $${paramIndex}`;
   values.push(taskId);
-
-  console.log("PATCH /tasks/:id - Query:", updateQuery, "Values:", values);
-
-  // Verify task exists
-  db.get("SELECT id, image FROM tasks WHERE id = ?", [taskId], (err, row) => {
-    if (err) {
-      console.error("Error checking task existence:", err);
-      return res
-        .status(500)
-        .json({ error: "Failed to verify task: " + err.message });
-    }
-    if (!row) {
-      console.warn(`Task with ID ${taskId} not found`);
+  try {
+    const { rows: checkRows } = await pool.query(
+      "SELECT id, image FROM tasks WHERE id = $1",
+      [taskId]
+    );
+    if (checkRows.length === 0) {
       return res.status(404).json({ error: "Task not found" });
     }
-
-    // Log current image state
-    console.log(
-      `Current task image state: ${row.image ? "has image" : "no image"}`
-    );
-
-    // Execute update
-    db.run(updateQuery, values, function (updateErr) {
-      if (updateErr) {
-        console.error("Error updating task:", updateErr);
-        return res
-          .status(500)
-          .json({ error: "Failed to update task: " + updateErr.message });
-      }
-
-      // Fetch updated task
-      db.get(
-        "SELECT * FROM tasks WHERE id = ?",
-        [taskId],
-        (fetchErr, updatedTask) => {
-          if (fetchErr) {
-            console.error("Error fetching updated task:", fetchErr);
-            return res.status(500).json({
-              error: "Failed to fetch updated task: " + fetchErr.message,
-            });
-          }
-          if (!updatedTask) {
-            console.error(`Task with ID ${taskId} not found after update`);
-            return res
-              .status(500)
-              .json({ error: "Task not found after update" });
-          }
-
-          console.log("Updated task:", updatedTask);
-          res.json({
-            updated: this.changes,
-            task: {
-              ...updatedTask,
-              image: updatedTask.image
-                ? `data:image/jpeg;base64,${updatedTask.image}`
-                : null,
-            },
-          });
-        }
-      );
+    const { rowCount } = await pool.query(updateQuery, values);
+    if (rowCount === 0) {
+      return res.status(500).json({ error: "Task not found after update" });
+    }
+    const { rows } = await pool.query("SELECT * FROM tasks WHERE id = $1", [
+      taskId,
+    ]);
+    res.json({
+      updated: rowCount,
+      task: {
+        ...rows[0],
+        image: rows[0].image ? `data:image/jpeg;base64,${rows[0].image}` : null,
+      },
     });
-  });
+  } catch (error) {
+    console.error("Error updating task:", error);
+    res.status(500).json({ error: "Failed to update task: " + error.message });
+  }
 });
 
-app.get("/tasks/:id/comments", (req, res) => {
+// GET /tasks/:id/comments
+app.get("/tasks/:id/comments", async (req, res) => {
   const taskId = parseInt(req.params.id);
   if (isNaN(taskId)) {
     return res.status(400).json({ error: "Invalid task ID" });
   }
-  db.all("SELECT * FROM comments WHERE task_id = ?", [taskId], (err, rows) => {
-    if (err) {
-      console.error("Error fetching comments:", err);
-      return res.status(500).json({ error: "Failed to fetch comments" });
-    }
+  try {
+    const { rows } = await pool.query(
+      "SELECT * FROM comments WHERE task_id = $1",
+      [taskId]
+    );
     res.json(rows);
-  });
+  } catch (error) {
+    console.error("Error fetching comments:", error);
+    res.status(500).json({ error: "Failed to fetch comments" });
+  }
 });
 
-app.post("/comments", (req, res) => {
+// POST /comments
+app.post("/comments", async (req, res) => {
   const { task_id, content } = req.body;
   const taskId = parseInt(task_id);
   if (isNaN(taskId)) {
     return res.status(400).json({ error: "Invalid task ID" });
   }
-  db.run(
-    "INSERT INTO comments (task_id, content) VALUES (?, ?)",
-    [taskId, content],
-    function (err) {
-      if (err) {
-        console.error("Error inserting comment:", err);
-        return res.status(500).json({ error: "Failed to insert comment" });
-      }
-      res.json({ id: this.lastID });
-    }
-  );
+  try {
+    const { rows } = await pool.query(
+      "INSERT INTO comments (task_id, content) VALUES ($1, $2) RETURNING id",
+      [taskId, content]
+    );
+    res.json({ id: rows[0].id });
+  } catch (error) {
+    console.error("Error inserting comment:", error);
+    res.status(500).json({ error: "Failed to insert comment" });
+  }
 });
 
-app.delete("/comments/:id", (req, res) => {
+// DELETE /comments/:id
+app.delete("/comments/:id", async (req, res) => {
   const commentId = parseInt(req.params.id);
   if (isNaN(commentId)) {
     return res.status(400).json({ error: "Invalid comment ID" });
   }
-  db.run("DELETE FROM comments WHERE id = ?", [commentId], function (err) {
-    if (err) {
-      console.error("Error deleting comment:", err);
-      return res.status(500).json({ error: "Failed to delete comment" });
-    }
-    res.json({ deleted: this.changes });
-  });
+  try {
+    const { rowCount } = await pool.query(
+      "DELETE FROM comments WHERE id = $1",
+      [commentId]
+    );
+    res.json({ deleted: rowCount });
+  } catch (error) {
+    console.error("Error deleting comment:", error);
+    res.status(500).json({ error: "Failed to delete comment" });
+  }
 });
 
-app.delete("/tasks/:id", (req, res) => {
+// DELETE /tasks/:id
+app.delete("/tasks/:id", async (req, res) => {
   const taskId = parseInt(req.params.id);
   if (isNaN(taskId)) {
     return res.status(400).json({ error: "Invalid task ID" });
   }
-  db.run("DELETE FROM tasks WHERE id = ?", [taskId], function (err) {
-    if (err) {
-      console.error("Error deleting task:", err);
-      return res.status(500).json({ error: "Failed to delete task" });
-    }
-    if (this.changes === 0) {
-      console.warn(`Task with ID ${taskId} not found`);
+  try {
+    const { rowCount } = await pool.query("DELETE FROM tasks WHERE id = $1", [
+      taskId,
+    ]);
+    if (rowCount === 0) {
       return res.status(404).json({ error: "Task not found" });
     }
-    res.json({ deleted: this.changes });
-  });
+    res.json({ deleted: rowCount });
+  } catch (error) {
+    console.error("Error deleting task:", error);
+    res.status(500).json({ error: "Failed to delete task" });
+  }
 });
 
 // Handle server shutdown
-process.on("SIGINT", () => {
-  db.close((err) => {
-    if (err) {
-      console.error("Error closing database:", err);
-    }
+process.on("SIGINT", async () => {
+  try {
+    await pool.end();
     console.log("Database connection closed");
     process.exit(0);
-  });
+  } catch (error) {
+    console.error("Error closing database:", error);
+    process.exit(1);
+  }
 });
 
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
+// Export for Vercel serverless
+module.exports = app;
