@@ -1,6 +1,8 @@
 const express = require("express");
 const { Pool } = require("pg");
 const cors = require("cors");
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 const app = express();
 
 // CORS configuration
@@ -23,35 +25,41 @@ const pool = new Pool({
 
 // Log database connection
 pool.connect((err) => {
-  if (err) console.error("DB connection error:", err);
+  if (err) console.error("DB connection error:", err.message);
   else console.log("DB connected");
 });
 
 // Initialize database tables
 async function initDb() {
   try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS tasks (
-        id SERIAL PRIMARY KEY,
-        title TEXT NOT NULL,
-        image TEXT,
-        description TEXT NOT NULL,
-        location TEXT NOT NULL,
-        status TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS comments (
-        id SERIAL PRIMARY KEY,
-        task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
-        content TEXT NOT NULL
-      );
-    `);
-    console.log("DB tables created");
+    const { rows } = await pool.query(
+      "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'tasks')"
+    );
+    if (!rows[0].exists) {
+      await pool.query(`
+        CREATE TABLE tasks (
+          id SERIAL PRIMARY KEY,
+          title TEXT NOT NULL,
+          image TEXT,
+          description TEXT NOT NULL,
+          location TEXT NOT NULL,
+          status TEXT NOT NULL
+        );
+        CREATE TABLE comments (
+          id SERIAL PRIMARY KEY,
+          task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+          content TEXT NOT NULL
+        );
+      `);
+      console.log("DB tables created");
+    } else {
+      console.log("DB tables already exist");
+    }
   } catch (error) {
-    console.error("Table creation error:", error);
-    throw error;
+    console.error("Table creation error:", error.message);
   }
 }
-initDb();
+initDb().catch((err) => console.error("DB init failed:", err.message));
 
 // GET /tasks/:id
 app.get("/tasks/:id", async (req, res) => {
@@ -68,7 +76,7 @@ app.get("/tasks/:id", async (req, res) => {
       image: rows[0].image ? `data:image/jpeg;base64,${rows[0].image}` : null,
     });
   } catch (error) {
-    console.error("Error fetching task:", error);
+    console.error("Error fetching task:", error.message);
     res.status(500).json({ error: "Failed to fetch task" });
   }
 });
@@ -85,7 +93,7 @@ app.get("/tasks", async (req, res) => {
       }))
     );
   } catch (error) {
-    console.error("Error fetching tasks:", error);
+    console.error("Error fetching tasks:", error.message);
     res.status(500).json({ error: "Failed to fetch tasks" });
   }
 });
@@ -106,8 +114,25 @@ app.post("/tasks", async (req, res) => {
     );
     res.status(201).json({ id: rows[0].id });
   } catch (error) {
-    console.error("Error creating task:", error);
+    console.error("Error creating task:", error.message);
     res.status(500).json({ error: "Failed to create task" });
+  }
+});
+
+// PATCH /tasks/:id/status
+app.get("/tasks", async (req, res) => {
+  res.set({ "Cache-Control": "no-store", Connection: "close" });
+  try {
+    const { rows } = await pool.query("SELECT * FROM tasks");
+    res.json(
+      rows.map((task) => ({
+        ...task,
+        image: task.image ? `data:image/jpeg;base64,${task.image}` : null,
+      }))
+    );
+  } catch (error) {
+    console.error("Error fetching tasks:", error.message);
+    res.status(500).json({ error: "Failed to fetch tasks" });
   }
 });
 
@@ -132,7 +157,7 @@ app.patch("/tasks/:id/status", async (req, res) => {
       return res.status(404).json({ error: "Task not found" });
     res.json({ updated: rowCount });
   } catch (error) {
-    console.error("Error updating status:", error);
+    console.error("Error updating status:", error.message);
     res.status(500).json({ error: "Failed to update status" });
   }
 });
@@ -181,7 +206,7 @@ app.patch("/tasks/:id", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating task:", error);
+    console.error("Error updating task:", error.message);
     res.status(500).json({ error: "Failed to update task" });
   }
 });
@@ -197,7 +222,7 @@ app.get("/tasks/:id/comments", async (req, res) => {
     );
     res.json(rows);
   } catch (error) {
-    console.error("Error fetching comments:", error);
+    console.error("Error fetching comments:", error.message);
     res.status(500).json({ error: "Failed to fetch comments" });
   }
 });
@@ -214,7 +239,7 @@ app.post("/comments", async (req, res) => {
     );
     res.json({ id: rows[0].id });
   } catch (error) {
-    console.error("Error inserting comment:", error);
+    console.error("Error inserting comment:", error.message);
     res.status(500).json({ error: "Failed to insert comment" });
   }
 });
@@ -231,7 +256,7 @@ app.delete("/comments/:id", async (req, res) => {
     );
     res.json({ deleted: rowCount });
   } catch (error) {
-    console.error("Error deleting comment:", error);
+    console.error("Error deleting comment:", error.message);
     res.status(500).json({ error: "Failed to delete comment" });
   }
 });
@@ -248,7 +273,7 @@ app.delete("/tasks/:id", async (req, res) => {
       return res.status(404).json({ error: "Task not found" });
     res.json({ deleted: rowCount });
   } catch (error) {
-    console.error("Error deleting task:", error);
+    console.error("Error deleting task:", error.message);
     res.status(500).json({ error: "Failed to delete task" });
   }
 });

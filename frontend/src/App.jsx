@@ -22,9 +22,7 @@ function App() {
 
   useEffect(() => {
     fetchTasks();
-    const interval = setInterval(fetchTasks, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  }, []); // Fetch only on mount
 
   const fetchTasks = async () => {
     try {
